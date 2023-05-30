@@ -21,10 +21,8 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
 
     # Situation where we want to generate 2 clusters with precomputed centers
     if precomputed_centers:
-      mu = np.array([[1,0], [-1,0]])
-      sigma = np.array([[precomputed_sigma, precomputed_sigma],
-                       [precomputed_sigma, precomputed_sigma]])
-      k=2
+      mu = np.eye(k)
+      sigma = np.full((k, k), precomputed_sigma)
     #Generate the numerical features based on Gaussian distributions
     else:
       mu = np.random.uniform(mu_range[0], mu_range[1], size=(k, num_numerical_features))
@@ -47,7 +45,7 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
 
     mask = np.random.choice([True, False], size=(num_categorical_features, num_samples), p=[p, 1-p])
 
-    # randomly replace elements in the matrix with new values
+    # Randomly replace elements in the matrix with new values
     new_values = np.random.randint(0, k, size=(num_categorical_features, num_samples))
 
     for i in range(num_categorical_features):
