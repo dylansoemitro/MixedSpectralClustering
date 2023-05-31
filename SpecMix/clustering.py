@@ -67,7 +67,6 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
         numerical_labels.append(f'numerical{i}')
 
     # Calculate numerical distances using KNN graph or fully connected graph
-    sigma = 1
     if automatic_sigma:
         if automatic_sigma == "median_pairwise":
             sigma = median_pairwise(numeric_df)

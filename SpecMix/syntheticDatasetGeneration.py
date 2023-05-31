@@ -19,7 +19,7 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
     - df: pandas DataFrame with shape (num_samples, num_numerical_features + num_categorical_features + 1), the features and the target label of the dataset
     """
 
-    # Situation where we want to generate 2 clusters with precomputed centers
+    # Situation where we want to generate k clusters with precomputed centers
     if precomputed_centers:
       mu = np.eye(k)
       sigma = np.full((k, k), precomputed_sigma)
