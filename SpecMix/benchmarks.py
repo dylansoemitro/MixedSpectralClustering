@@ -4,17 +4,19 @@ from itertools import permutations
 from kmodes.kprototypes import KPrototypes
 from stepmix.stepmix import StepMix
 from stepmix.utils import get_mixed_descriptor
-from clustering import create_adjacency_df
+from SpecMix.clustering import create_adjacency_df
 from sklearn.metrics import confusion_matrix
+from SpecMix.spectralCAT import spectralCAT
 import numpy as np
 import time
 
 def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = []):
-  df = df.drop(['target'], axis=1, errors='ignore')
+  
 
   if method == "spectral":
+    df = df.drop(['target'], axis=1, errors='ignore')
     if lambdas:
-        adj_matrix = create_adjacency_df(df, lambdas,knn=knn, numerical_cols = numerical_cols, categorical_cols = categorical_cols + binary_cols)
+        adj_matrix = create_adjacency_df(df, lambdas=lambdas,knn=knn, numerical_cols = numerical_cols, categorical_cols = categorical_cols + binary_cols)
     else:
         adj_matrix = create_adjacency_df(df,knn=knn, numerical_cols = numerical_cols, categorical_cols = categorical_cols + binary_cols)
     start_time = time.time()
@@ -23,6 +25,7 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     predicted_labels = clustering.labels_[:len(target_labels)].tolist()
 
   elif method == "k-prototypes":
+    df = df.drop(['target'], axis=1, errors='ignore')
     if categorical_cols:
         catColumnsPos = [df.columns.get_loc(col) for col in categorical_cols + binary_cols]
     else:
@@ -34,6 +37,7 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     end_time = time.time()
 
   elif method == "lca":
+    df = df.drop(['target'], axis=1, errors='ignore')
     # Extract binary columns
     binCols = set(df.select_dtypes(include=[bool]).columns)
     # Extract numerical columns
@@ -47,7 +51,7 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
       continuous=numCols,
       binary=binCols,
       categorical=catCols)
-    model = StepMix(n_components=n_clusters, measurement=mixed_descriptor, verbose=1, random_state=123)
+    model = StepMix(n_components=n_clusters, measurement=mixed_descriptor, verbose=0, random_state=123)
 
     # Fit model
     model.fit(mixed_data)
@@ -56,6 +60,13 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     df['mixed_pred'] = model.predict(mixed_data)
     predicted_labels = df['mixed_pred'].to_numpy()
     end_time = time.time()
+  elif method == "spectralCAT":
+    start_time = time.time()
+    _, _, predicted_labels, _= spectralCAT(df, n_clusters, 30, 0)
+    end_time = time.time()
+  else:
+    raise ValueError("Invalid method")
+  
   time_taken = end_time-start_time
 
   scores_dict = {}
@@ -70,7 +81,6 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
 
     max_score = max(scores_list)
     scores_dict[metric] = max_score
-
   return scores_dict, time_taken
 
 def purity_score(y_pred, y_true):

@@ -33,9 +33,8 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
 
     numerical_labels = []  # keep track of numerical node labels
     categorical_labels = []  # keep track of categorical node labels
-
     # If columns are not specified, use the original logic
-    if numerical_cols is None and categorical_cols is None:
+    if not numerical_cols and not categorical_cols:
         # Separate numeric and categorical columns
         numeric_df = df.select_dtypes(include=np.number)
         categorical_df = df.select_dtypes(exclude=np.number)
