@@ -77,7 +77,17 @@ def analyze_sigma(p, num_samples, num_numerical_features=2, num_categorical_feat
         plt.show()
 
     for m in avg_time_taken:
-        pass
+        plt.figure()
+        plt.plot(sigmas, avg_time_taken[m], label=m)
+
+        # Add legend and labels to the plot
+        plt.legend()
+        plt.xlabel('Sigma')
+        plt.ylabel('Time taken')
+        plt.title('Time taken by Variance with Probability = ' + str(p))
+        plt.savefig('Time_taken_by_Variance_with_Probability=' + str(p) + '_plot.png')
+
+        plt.show()
 
     return sigma_scores
 

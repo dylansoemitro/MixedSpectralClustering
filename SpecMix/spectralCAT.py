@@ -25,8 +25,7 @@ def categorize(X, max_k=10):
 
     return X_cat
 
-
-    
+#Used implementation from https://github.com/ztacs/Clustering-High-dimensional-Noisy-Categorical-Data/blob/main/SpectralCAT/spectralCAT.m
 def spectralCAT(df, r, replicate, ran):
     np.random.seed(ran)
     m, n = df.shape
