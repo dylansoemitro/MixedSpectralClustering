@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1, num_samples=10, k=2, mu_range=(-1,1), sigma_range = (0.1,0.3), p=0, precomputed_centers = False, precomputed_sigma = 0.2):
+def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1, num_samples=10, k=2, mu_range=(-1,1), sigma_range = (0.1,0.3), p=0, precomputed_centers = False, precomputed_sigma = 0.2, save=False, filename="mixed_dataset.csv"):
     """
     Generates a mixed type dataset with numerical and categorical features and k clusters.
 
@@ -67,6 +67,9 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
 
     # Add the target label
     df['target'] = cluster_idx
-
+  
+    # Save the dataset
+    if save:
+      df.to_csv(filename, index=False)
 
     return df
