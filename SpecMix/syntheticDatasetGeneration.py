@@ -23,6 +23,10 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
     if precomputed_centers:
       mu = np.eye(k)
       sigma = np.full((k, k), precomputed_sigma)
+    #   mu = np.full((k, num_numerical_features), -1)
+    # sigma = np.full((k, num_numerical_features), precomputed_sigma)
+    # for i in range(k):
+    #     mu[i, i%num_numerical_features] = 1
     #Generate the numerical features based on Gaussian distributions
     else:
       mu = np.random.uniform(mu_range[0], mu_range[1], size=(k, num_numerical_features))

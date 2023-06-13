@@ -89,6 +89,7 @@ def spectralCAT(df, r, replicate, ran):
 
     # Perform k-means clustering
     start_time = time.time()
+    #print("n_clusters: ", r)
     kmeans = KMeans(n_clusters=r, n_init=replicate, max_iter=100, random_state=ran)
     C = kmeans.fit_predict(Pr_P)
 

@@ -9,8 +9,9 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import SpectralClustering
 from sklearn.preprocessing import normalize
 from sklearn.metrics import silhouette_score
+from sklearn.metrics.pairwise import pairwise_distances
 
-def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2):
+def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2):
     """
     Creates an adjacency matrix for a given dataset for use in spectral clustering.
 
@@ -38,6 +39,12 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
         # Separate numeric and categorical columns
         numeric_df = df.select_dtypes(include=np.number)
         categorical_df = df.select_dtypes(exclude=np.number)
+        # unique_cols = []
+        # for col in df:
+        #     if is_string_dtype(df[col]) or is_bool_dtype(df[col]):
+        #         unique_cols.extend(df[col].unique())
+        # # Identify unique categorical variables
+        # categorical_nodes_count = len(unique_cols)
     else:
         numeric_df = df[numerical_cols]
         categorical_df = df[categorical_cols]
@@ -50,14 +57,8 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
     for k, col in enumerate(categorical_df):
         for value in categorical_df[col].unique():
             categorical_labels.append(f'{col}={value}')
-    # Identify unique categorical variables
-    unique_cols = []
-    for col in df:
-        if is_string_dtype(df[col]) or is_bool_dtype(df[col]):
-            unique_cols.extend(df[col].unique())
-    categorical_nodes_count = len(unique_cols)
+    categorical_nodes_count = len(categorical_labels)
     total_nodes_count = numerical_nodes_count + categorical_nodes_count
-
     # Initialize adjacency matrix
     matrix = np.zeros((total_nodes_count, total_nodes_count))
 
@@ -66,22 +67,28 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
         numerical_labels.append(f'numerical{i}')
 
     # Calculate numerical distances using KNN graph or fully connected graph
-    if automatic_sigma:
-        if automatic_sigma == "median_pairwise":
-            sigma = median_pairwise(numeric_df)
-        elif automatic_sigma == "ascmsd":
-            sigma = ascmsd(numeric_df, knn)
-        elif "cv_distortion":
-            sigmas = np.linspace(0.1, 100, 1000)
-            sigma = cv_distortion_sigma(numeric_df, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
-        elif "cv_sigma":
-            sigmas = np.linspace(0.1, 100, 1000)
-            sigma = cv_sigma(numeric_df, sigmas, n_clusters=n_clusters, knn=knn)
-        else:
-            raise ValueError("Invalid automatic_sigma value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
+    
     scaler = StandardScaler()
     numeric_arr = scaler.fit_transform(np.array(numeric_df))
 
+    if kernel:
+        if kernel == "median_pairwise":
+            sigma = median_pairwise(numeric_arr)
+        elif kernel == "ascmsd":
+            sigma = ascmsd(numeric_arr, knn)
+        elif kernel == "cv_distortion":
+            sigmas = np.linspace(0., 100, 20)
+            sigma = cv_distortion_sigma(numeric_arr, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
+        elif kernel == "cv_sigma":
+            sigmas = np.linspace(0.01, 10, 30)
+            sigma = cv_sigma(numeric_arr, sigmas, n_clusters=n_clusters)
+        elif kernel == "preset":
+            pass
+        else:
+            raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
+    if sigma == 0:
+        sigma = 1
+    #print(sigma)
     if knn:
         A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
         A_conn = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='connectivity', include_self=True)
@@ -100,6 +107,8 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
         dist_matrix = np.exp(-(dist_matrix)**2 / ((2 * sigma**2)))
 
     # Add numerical distance matrix to the original one (top left corner)
+    if lambdas[0] == 0:
+        return (dist_matrix, sigma) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma)
     matrix[:numerical_nodes_count, :numerical_nodes_count] = dist_matrix
 
     # Connect categorical nodes to numerical observations
@@ -113,22 +122,22 @@ def create_adjacency_df(df, sigma = 1, automatic_sigma=False, lambdas=None, knn=
 
     # Create labeled DataFrame if required
     if return_df:
-        return pd.DataFrame(matrix, index=numerical_labels + categorical_labels, columns=numerical_labels + categorical_labels)
+        return pd.DataFrame(matrix, index=numerical_labels + categorical_labels, columns=numerical_labels + categorical_labels), sigma
     else:
-        return matrix
+        return matrix, sigma
 
 
 def median_pairwise(numeric_arr):
-    # Compute pairwise distances
-    pairwise_distances = kneighbors_graph(numeric_arr)
-    sigma = np.median(pairwise_distances)
+    # Compute median of pairwise distances
+    sigma = np.median(numeric_arr)
+
     return sigma
 
 def ascmsd(numeric_arr, knn):
     # Compute pairwise distances
-    pairwise_distances = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance')
-    pairwise_distances = pairwise_distances.toarray()
-
+    # pairwise_distances = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance')
+    # pairwise_distances = pairwise_distances.toarray()
+    pairwise_distances = numeric_arr
     # Estimate density
     density = np.exp(-pairwise_distances**2 / 2.0)
     density = np.sum(density, axis=1)
