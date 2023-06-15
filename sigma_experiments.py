@@ -106,7 +106,7 @@ def analyze_sigma(p, num_samples, num_numerical_features=2, num_categorical_feat
             for method in sigma_scores[metric]:
                 if ker in method:
                     plt.plot(sigmas, sigma_scores[metric][method], label=method)
-                elif 'spectral' not in method:
+                elif 'spectral' not in method or method == 'spectralCAT':
                     plt.plot(sigmas, sigma_scores[metric][method], label=method)
 
             # Add legend and labels to the plot
@@ -196,9 +196,9 @@ p = 0.4
 num_samples = 1000
 num_numerical_features = 2
 num_categorical_features = 2
-num_experiments = 100
-methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT']
-metrics = ['jaccard', 'purity']
+num_experiments = 1
+methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT', 'denseclus']
+metrics = ['purity', 'calinski_harabasz', 'homogeneity', 'silhouette', 'adjusted_rand']
 num_clusters = 2
 kernel = ['median_pairwise', 'cv_sigma', 'preset']
 generate =  False

@@ -1,4 +1,4 @@
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.metrics import calinski_harabasz_score
 import numpy as np
 from scipy.sparse.linalg import svds
@@ -81,17 +81,23 @@ def spectralCAT(df, r, replicate, ran):
 
     # Adaptive Gaussian kernel eqn(6)
     W = np.exp(-Delta / np.sqrt(np.outer(omeg, omeg)))
-    d = np.sum(W, axis=1)
-    P = W / np.sqrt(np.outer(d, d))
+    # d = np.sum(W, axis=1)
+    # P = W / np.sqrt(np.outer(d, d))
 
-    U, S, _ = svds(P, r)
-    Pr_P = U.dot(np.diag(S))
+    # U, S, _ = svds(P, r)
+    # Pr_P = U.dot(np.diag(S))
 
-    # Perform k-means clustering
+    # # Perform k-means clustering
+    # start_time = time.time()
+    # #print("n_clusters: ", r)
+    # kmeans = KMeans(n_clusters=r, n_init=replicate, max_iter=100, random_state=ran)
+    # C = kmeans.fit_predict(Pr_P)
+
+    #Spectral Clustering
+
     start_time = time.time()
-    #print("n_clusters: ", r)
-    kmeans = KMeans(n_clusters=r, n_init=replicate, max_iter=100, random_state=ran)
-    C = kmeans.fit_predict(Pr_P)
+    clustering = SpectralClustering(n_clusters=r, assign_labels = 'kmeans', affinity = 'precomputed').fit(W)
+    C = clustering.labels_
 
     T = df.iloc[:, n].values
     Acc = accuracy_score(T, C)

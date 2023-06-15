@@ -48,7 +48,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
     else:
         numeric_df = df[numerical_cols]
         categorical_df = df[categorical_cols]
-
+    #print(categorical_df)
     # Add numerical labels to list
     for i in range(numerical_nodes_count):
         numerical_labels.append(f'numerical{i}')
@@ -70,7 +70,6 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
     
     scaler = StandardScaler()
     numeric_arr = scaler.fit_transform(np.array(numeric_df))
-
     if kernel:
         if kernel == "median_pairwise":
             sigma = median_pairwise(numeric_arr)
@@ -88,7 +87,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
             raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
     if sigma == 0:
         sigma = 1
-    #print(sigma)
+
     if knn:
         A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
         A_conn = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='connectivity', include_self=True)
@@ -107,7 +106,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
         dist_matrix = np.exp(-(dist_matrix)**2 / ((2 * sigma**2)))
 
     # Add numerical distance matrix to the original one (top left corner)
-    if lambdas[0] == 0:
+    if lambdas and lambdas[0] == 0:
         return (dist_matrix, sigma) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma)
     matrix[:numerical_nodes_count, :numerical_nodes_count] = dist_matrix
 
@@ -196,9 +195,11 @@ def cv_sigma(adjacency_matrix, sigma_values, n_clusters, scoring_function=silhou
         # Apply spectral clustering with the current sigma
         sc = SpectralClustering(n_clusters=n_clusters, affinity='rbf', gamma=1.0/sigma**2)
         cluster_labels = sc.fit_predict(adjacency_matrix)
-
         # Compute score
-        score = scoring_function(adjacency_matrix, cluster_labels)
+        if len(np.unique(cluster_labels)) == 1:
+            score = -np.inf
+        else:
+            score = scoring_function(adjacency_matrix, cluster_labels)
 
         # Update the best score and best sigma if current score is higher
         if score > best_score:
@@ -206,3 +207,4 @@ def cv_sigma(adjacency_matrix, sigma_values, n_clusters, scoring_function=silhou
             best_sigma = sigma
 
     return best_sigma
+
