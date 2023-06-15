@@ -8,7 +8,7 @@ from SpecMix.clustering import create_adjacency_df
 from SpecMix.spectralCAT import spectralCAT
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import OneHotEncoder
-from denseclus import DenseClus
+#from denseclus import DenseClus
 from prince import FAMD
 import numpy as np
 import time
@@ -92,13 +92,13 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     famd.fit(df)
     end_time = time.time()
     predicted_labels = famd.column
-  elif method == "denseclus":
-    df = df.drop(['target'], axis=1, errors='ignore')
-    denseclus = DenseClus(umap_combine_method="intersection_union_mapper", cluster_selection_method="leaf", random_state=0)
-    start_time = time.time()
-    denseclus.fit(df)
-    end_time = time.time()
-    predicted_labels = denseclus.score()
+  # elif method == "denseclus":
+  #   df = df.drop(['target'], axis=1, errors='ignore')
+  #   denseclus = DenseClus(umap_combine_method="intersection_union_mapper", cluster_selection_method="leaf", random_state=0)
+  #   start_time = time.time()
+  #   denseclus.fit(df)
+  #   end_time = time.time()
+  #   predicted_labels = denseclus.score()
   else:
     raise ValueError("Invalid method")
 
@@ -129,7 +129,10 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
         encoder = OneHotEncoder()
         df_encoded = encoder.fit_transform(catColumns)
         df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
-      score = score_function(df_encoded, predicted_labels)
+      if len(np.unique(predicted_labels)) == 1:
+        score = -1
+      else:
+        score = score_function(df_encoded, predicted_labels)
     else:
       score = score_function(predicted_labels, target_labels)
     scores_dict[metric] = score
