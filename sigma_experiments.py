@@ -193,11 +193,12 @@ def plot(x, y, xlabel, ylabel, title, filename):
 
 
 p = 0.4
-num_samples = 1000
+num_samples = 100
 num_numerical_features = 2
 num_categorical_features = 2
 num_experiments = 1
-methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT', 'denseclus']
+# methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT', 'denseclus']
+methods = ['denseclus', 'spectral']
 metrics = ['purity', 'calinski_harabasz', 'homogeneity', 'silhouette', 'adjusted_rand']
 num_clusters = 2
 kernel = ['median_pairwise', 'cv_sigma', 'preset']

@@ -8,7 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 import time
 import pandas as pd
 
-def categorize(X, max_k=10):
+def categorize(X, max_k=20):
     S = {}
     for k in range(2, max_k+1):
         kmeans = KMeans(n_clusters=k, n_init='auto')
@@ -100,7 +100,8 @@ def spectralCAT(df, r, replicate, ran):
     C = clustering.labels_
 
     T = df.iloc[:, n].values
-    Acc = accuracy_score(T, C)
+    #Acc = accuracy_score(T, C)
+    Acc = 0 #PLACEHOLDER
     et = time.time() - start_time
 
     return Acc, et, C, T

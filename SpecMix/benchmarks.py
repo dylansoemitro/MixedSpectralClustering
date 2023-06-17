@@ -8,15 +8,17 @@ from SpecMix.clustering import create_adjacency_df
 from SpecMix.spectralCAT import spectralCAT
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import OneHotEncoder
-#from denseclus import DenseClus
+from denseclus import DenseClus
 from prince import FAMD
 import numpy as np
 import time
+from collections import Counter
 import pandas as pd
-
+import gower
 def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = [], kernel=None, curr_kernel=0):
   sigma = 0
-
+  
+  print("Method: ", method)
   if method == "spectral":
     df = df.drop(['target'], axis=1, errors='ignore')
     if lambdas:
@@ -35,7 +37,8 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     else:
         catColumnsPos = [df.columns.get_loc(col) for col in list(df.select_dtypes('object').columns)]
 
-    if catColumnsPos:
+    if catColumnsPos and not len(numerical_cols) == df.shape[1]:
+      print("k-protypes")
       kprototypes = KPrototypes(n_jobs = -1, n_clusters = n_clusters, init = 'Huang', random_state = 0)
       start_time = time.time()
       predicted_labels = kprototypes.fit_predict(df.to_numpy(), categorical = catColumnsPos)
@@ -56,9 +59,9 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
       # Extract numerical columns
       numCols= set(df.select_dtypes(include=[int, float]).columns)
       # Extract categorical columns
-      catCols = set(df.columns) - numerical_cols - binary_cols
       binCols = set(df.select_dtypes(include=[bool]).columns)
 
+      catCols = set(df.columns) - numCols - binCols
     else:
       catCols = set(categorical_cols)
       numCols = set(numerical_cols)
@@ -90,20 +93,35 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     famd = FAMD(n_components=n_clusters, random_state=0, copy=True)
     start_time = time.time()
     famd.fit(df)
+    transformed = famd.transform(df)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(transformed)
+    predicted_labels = kmeans.predict(transformed)
     end_time = time.time()
-    predicted_labels = famd.column
-  # elif method == "denseclus":
-  #   df = df.drop(['target'], axis=1, errors='ignore')
-  #   denseclus = DenseClus(umap_combine_method="intersection_union_mapper", cluster_selection_method="leaf", random_state=0)
-  #   start_time = time.time()
-  #   denseclus.fit(df)
-  #   end_time = time.time()
-  #   predicted_labels = denseclus.score()
+
+  elif method == "denseclus":
+    df = df.drop(['target'], axis=1, errors='ignore')
+    print(df.dtypes)
+    denseclus = DenseClus(umap_combine_method="intersection_union_mapper", cluster_selection_method="leaf", random_state=0)
+    start_time = time.time()
+    denseclus.fit(df)
+    end_time = time.time()
+    predicted_labels = denseclus.score()
+
   else:
     raise ValueError("Invalid method")
 
   time_taken = end_time-start_time
   scores_dict = {}
+  # print("predicted labels: ", predicted_labels)
+  # print("target labels: ", target_labels)
+  element_frequencies_pred = Counter(predicted_labels)
+  element_frequencies_target = Counter(target_labels)
+  print("Predicted Label Frequencies: ")
+  for element, frequency in element_frequencies_pred.items():
+      print(f"Element {element}: {frequency} times")
+  print("Target Label Frequencies: ")
+  for element, frequency in element_frequencies_target.items():
+      print(f"Element {element}: {frequency} times")
   score_function_dict = {"jaccard": jaccard_score, "purity": purity_score, "silhouette": silhouette_score, "calinski_harabasz": calinski_harabasz_score, "adjusted_rand": adjusted_rand_score, "homogeneity": homogeneity_score}
   for metric in metrics:
     scores_list = []
@@ -118,21 +136,34 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
           scores_list.append(score)
       score = max(scores_list)
     elif score_function == silhouette_score or score_function == calinski_harabasz_score:
-      df_encoded = df
-      df_encoded = df_encoded.drop(['target'], axis=1, errors='ignore')
-      if categorical_cols:
-        catColumns = df[categorical_cols + binary_cols]
-      else:
-        catColumns = df.select_dtypes(include=[object, bool])
-        numerical_cols = df.select_dtypes(include=[int, float])
-      if df_encoded.shape[0] == 0:
-        encoder = OneHotEncoder()
-        df_encoded = encoder.fit_transform(catColumns)
-        df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
+
+      # if categorical_cols:
+      #   catColumns = df[categorical_cols + binary_cols]
+      # else:
+      #   catColumns = df.select_dtypes(include=[object, bool])
+      #   numerical_cols = df.select_dtypes(include=[int, float])
+      df = df.drop(['target'], axis=1, errors='ignore')
+      gower_dist_matrix = gower.gower_matrix(df)      
+
+      #one hot encode all categorical columns
+      # if catColumns.shape[1] > 0:
+      #   encoder = OneHotEncoder()
+      #   df_encoded = encoder.fit_transform(catColumns)
+      #   df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
+
+      # if df_encoded.shape[0] == 0:
+      #   print("here")
+      #   encoder = OneHotEncoder()
+      #   df_encoded = encoder.fit_transform(catColumns)
+      #   df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
+
       if len(np.unique(predicted_labels)) == 1:
         score = -1
       else:
-        score = score_function(df_encoded, predicted_labels)
+        if score_function == silhouette_score:
+          score = score_function(gower_dist_matrix, predicted_labels, metric = 'precomputed')
+        else:
+          score = score_function(gower_dist_matrix, predicted_labels)
     else:
       score = score_function(predicted_labels, target_labels)
     scores_dict[metric] = score
