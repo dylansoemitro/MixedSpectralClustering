@@ -8,24 +8,22 @@ from SpecMix.clustering import create_adjacency_df
 from SpecMix.spectralCAT import spectralCAT
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import OneHotEncoder
-from denseclus import DenseClus
+#from denseclus import DenseClus
 from prince import FAMD
 import numpy as np
 import time
 from collections import Counter
 import pandas as pd
 import gower
+
 def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = [], kernel=None, curr_kernel=0):
   sigma = 0
   
-  print("Method: ", method)
+  #print("Method: ", method)
   if method == "spectral":
     df = df.drop(['target'], axis=1, errors='ignore')
-    if lambdas:
-        adj_matrix, sigma = create_adjacency_df(df, lambdas=lambdas,knn=knn, numerical_cols = numerical_cols, categorical_cols = categorical_cols + binary_cols, kernel=kernel, sigma=curr_kernel)
-    else:
-        adj_matrix, sigma = create_adjacency_df(df,knn=knn, numerical_cols = numerical_cols, categorical_cols = categorical_cols + binary_cols,  kernel=kernel, sigma=curr_kernel)
     start_time = time.time()
+    adj_matrix, sigma, _ = create_adjacency_df(df, sigma = sigma, kernel=kernel, lambdas=lambdas, knn=knn, return_df=False, numerical_cols=numerical_cols, categorical_cols=categorical_cols, n_clusters = n_clusters)
     clustering = SpectralClustering(n_clusters=n_clusters, assign_labels='kmeans',random_state=0, affinity = 'precomputed').fit(adj_matrix)
     end_time = time.time()
     predicted_labels = clustering.labels_[:len(target_labels)].tolist()
@@ -38,7 +36,6 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
         catColumnsPos = [df.columns.get_loc(col) for col in list(df.select_dtypes('object').columns)]
 
     if catColumnsPos and not len(numerical_cols) == df.shape[1]:
-      print("k-protypes")
       kprototypes = KPrototypes(n_jobs = -1, n_clusters = n_clusters, init = 'Huang', random_state = 0)
       start_time = time.time()
       predicted_labels = kprototypes.fit_predict(df.to_numpy(), categorical = catColumnsPos)
@@ -100,7 +97,6 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
 
   elif method == "denseclus":
     df = df.drop(['target'], axis=1, errors='ignore')
-    print(df.dtypes)
     denseclus = DenseClus(umap_combine_method="intersection_union_mapper", cluster_selection_method="leaf", random_state=0)
     start_time = time.time()
     denseclus.fit(df)
@@ -114,14 +110,14 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
   scores_dict = {}
   # print("predicted labels: ", predicted_labels)
   # print("target labels: ", target_labels)
-  element_frequencies_pred = Counter(predicted_labels)
-  element_frequencies_target = Counter(target_labels)
-  print("Predicted Label Frequencies: ")
-  for element, frequency in element_frequencies_pred.items():
-      print(f"Element {element}: {frequency} times")
-  print("Target Label Frequencies: ")
-  for element, frequency in element_frequencies_target.items():
-      print(f"Element {element}: {frequency} times")
+  # element_frequencies_pred = Counter(predicted_labels)
+  # element_frequencies_target = Counter(target_labels)
+  # print("Predicted Label Frequencies: ")
+  # for element, frequency in element_frequencies_pred.items():
+  #     print(f"Element {element}: {frequency} times")
+  # print("Target Label Frequencies: ")
+  # for element, frequency in element_frequencies_target.items():
+  #     print(f"Element {element}: {frequency} times")
   score_function_dict = {"jaccard": jaccard_score, "purity": purity_score, "silhouette": silhouette_score, "calinski_harabasz": calinski_harabasz_score, "adjusted_rand": adjusted_rand_score, "homogeneity": homogeneity_score}
   for metric in metrics:
     scores_list = []
@@ -144,18 +140,6 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
       #   numerical_cols = df.select_dtypes(include=[int, float])
       df = df.drop(['target'], axis=1, errors='ignore')
       gower_dist_matrix = gower.gower_matrix(df)      
-
-      #one hot encode all categorical columns
-      # if catColumns.shape[1] > 0:
-      #   encoder = OneHotEncoder()
-      #   df_encoded = encoder.fit_transform(catColumns)
-      #   df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
-
-      # if df_encoded.shape[0] == 0:
-      #   print("here")
-      #   encoder = OneHotEncoder()
-      #   df_encoded = encoder.fit_transform(catColumns)
-      #   df_encoded  = pd.concat([df[numerical_cols], pd.DataFrame(df_encoded.toarray())], axis=1)
 
       if len(np.unique(predicted_labels)) == 1:
         score = -1

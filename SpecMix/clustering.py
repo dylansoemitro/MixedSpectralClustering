@@ -10,6 +10,7 @@ from sklearn.cluster import SpectralClustering
 from sklearn.preprocessing import normalize
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import pairwise_distances
+import time
 
 def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2):
     """
@@ -28,6 +29,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
     """
 
     # Initialize variables and data structures
+    start = time.time()
     lambdas = lambdas or []
     numerical_nodes_count = len(df.index)
     df = df.drop(['target'], axis=1, errors='ignore')
@@ -39,16 +41,10 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
         # Separate numeric and categorical columns
         numeric_df = df.select_dtypes(include=np.number)
         categorical_df = df.select_dtypes(exclude=np.number)
-        # unique_cols = []
-        # for col in df:
-        #     if is_string_dtype(df[col]) or is_bool_dtype(df[col]):
-        #         unique_cols.extend(df[col].unique())
-        # # Identify unique categorical variables
-        # categorical_nodes_count = len(unique_cols)
     else:
         numeric_df = df[numerical_cols]
         categorical_df = df[categorical_cols]
-    #print(categorical_df)
+
     # Add numerical labels to list
     for i in range(numerical_nodes_count):
         numerical_labels.append(f'numerical{i}')
@@ -79,14 +75,14 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
             sigmas = np.linspace(0., 100, 20)
             sigma = cv_distortion_sigma(numeric_arr, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
         elif kernel == "cv_sigma":
-            sigmas = np.linspace(0.01, 10, 30)
+            sigmas = np.linspace(0.01, 10, 20)
             sigma = cv_sigma(numeric_arr, sigmas, n_clusters=n_clusters)
         elif kernel == "preset":
             pass
         else:
             raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
     if sigma == 0:
-        sigma = 1
+        sigma = 1e-10
 
     if knn:
         A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
@@ -107,7 +103,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
 
     # Add numerical distance matrix to the original one (top left corner)
     if lambdas and lambdas[0] == 0:
-        return (dist_matrix, sigma) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma)
+        return (dist_matrix, sigma, time.time()-start) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma, time.time()-start)
     matrix[:numerical_nodes_count, :numerical_nodes_count] = dist_matrix
 
     # Connect categorical nodes to numerical observations
@@ -118,13 +114,19 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
                 matrix[i][j], matrix[j][i] = 1, 1
             else:
                 matrix[i][j], matrix[j][i] = lambdas[k], lambdas[k]
-
+    end = time.time()
+    time_taken = end-start
     # Create labeled DataFrame if required
     if return_df:
-        return pd.DataFrame(matrix, index=numerical_labels + categorical_labels, columns=numerical_labels + categorical_labels), sigma
+        return pd.DataFrame(matrix, index=numerical_labels + categorical_labels, columns=numerical_labels + categorical_labels), sigma, time_taken
     else:
-        return matrix, sigma
+        return matrix, sigma, time_taken
 
+
+def SpecMix(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2, random_state = 0):
+    adj_matrix, sigma, time_taken = create_adjacency_df(df, sigma, kernel, lambdas, knn, return_df, numerical_cols, categorical_cols, n_clusters)
+    spectral = SpectralClustering(n_clusters=n_clusters, assign_labels='kmeans',random_state=random_state, affinity = 'precomputed').fit(adj_matrix)
+    return spectral.labels_, time_taken
 
 def median_pairwise(numeric_arr):
     # Compute median of pairwise distances
