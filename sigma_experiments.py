@@ -58,27 +58,28 @@ def analyze_sigma(p, num_samples, num_numerical_features=2, num_categorical_feat
             for m in methods:
                 if m == 'spectral':
                     continue
+                m_start = time.time()
                 score, time_taken, _ = calculate_score(df, df['target'].tolist(), num_clusters, m, metrics=metrics, lambdas=[l]*len(categorical_cols), knn=knn, numerical_cols=numerical_cols, categorical_cols=categorical_cols)
                 exp_sigmas[m].append(score)
                 exp_time[m].append(time_taken)
+                m_end = time.time()
+                print(m, "time taken:", m_end - m_start)                    
             if 'spectral' in methods:
                 for ker in kernel:
-                    curr_kernel = 0
-
                     for l in lambda_values:
+                        k_start = time.time()
                         if kernel:
-                            if not curr_kernel:
-                                score, time_taken, curr_kernel = calculate_score(df, df['target'].tolist(), num_clusters, 'spectral',  metrics=metrics, lambdas=[l] * len(categorical_cols), knn=knn, numerical_cols=numerical_cols, categorical_cols=categorical_cols, kernel=ker)
-                            else:
-                                score, time_taken, curr_kernel = calculate_score(df, df['target'].tolist(), num_clusters, 'spectral',  metrics=metrics, lambdas=[l] * len(categorical_cols), knn=knn, numerical_cols=numerical_cols, categorical_cols=categorical_cols, kernel=None, curr_kernel=curr_kernel)
-                            
-                            exp_sigmas[f'spectral lambda={l} kernel={ker}'].append(score)
+                            score, time_taken, _ = calculate_score(df, df['target'].tolist(), num_clusters, 'spectral',  metrics=metrics, lambdas=[l] * len(categorical_cols), knn=knn, numerical_cols=numerical_cols, categorical_cols=categorical_cols, kernel=ker)
                             exp_time[f'spectral lambda={l} kernel={ker}'].append(time_taken)
+                            exp_sigmas[f'spectral lambda={l} kernel={ker}'].append(score)
                         else:
                             lambdas = [l] * len(categorical_cols)
                             score, time_taken, _ = calculate_score(df, df['target'].tolist(), num_clusters, 'spectral',  metrics=metrics, lambdas=lambdas, knn=knn, numerical_cols=numerical_cols, categorical_cols=categorical_cols)
                             exp_sigmas[f'spectral lambda={l}'].append(score)
                             exp_time[f'spectral lambda={l}'].append(time_taken)
+                        k_end = time.time()
+                        print("spectral time taken:", l, ker,  k_end - k_start)
+                        print("kernel size", _)
                     curr_kernel = 0
         del exp_sigmas['spectral']
         del exp_time['spectral']
@@ -93,6 +94,7 @@ def analyze_sigma(p, num_samples, num_numerical_features=2, num_categorical_feat
             avg_time_taken[method].append(np.mean(exp_time[method]))
         end = time.time()
         print("Time taken:", end - start)
+    
     for metric in metrics:
         del sigma_scores[metric]['spectral']
     del avg_time_taken['spectral']
@@ -117,12 +119,12 @@ def analyze_sigma(p, num_samples, num_numerical_features=2, num_categorical_feat
             plt.savefig(path + metric + '_kernel=' + ker+'_plot.png')
             plt.show()
 
-    plt.figure()
     for ker in kernel:
+        plt.figure()
         for m in avg_time_taken:
             if ker in m:
                 plt.plot(sigmas, avg_time_taken[m], label=m)
-            elif 'spectral' not in m:
+            elif 'spectral' not in m or m == 'spectralCAT':
                 plt.plot(sigmas, avg_time_taken[m], label=m)
     
 
@@ -193,15 +195,15 @@ def plot(x, y, xlabel, ylabel, title, filename):
 
 
 p = 0.4
-num_samples = 100
+num_samples = 1000
 num_numerical_features = 2
 num_categorical_features = 2
-num_experiments = 1
-# methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT', 'denseclus']
-methods = ['denseclus', 'spectral']
+num_experiments = 100
+methods = ['spectral', 'k-prototypes', 'lca', 'spectralCAT', 'famd']
+#methods = ['denseclus', 'spectral']
 metrics = ['purity', 'calinski_harabasz', 'homogeneity', 'silhouette', 'adjusted_rand']
 num_clusters = 2
-kernel = ['median_pairwise', 'cv_sigma', 'preset']
+kernel = ['median_pairwise', 'preset']
 generate =  False
 directory = 'Experiments/Synthetic Datasets'
 analyze_sigma(0.1, num_samples, num_numerical_features=num_numerical_features, num_categorical_features=num_categorical_features, num_experiments=num_experiments, methods=methods, metrics=metrics, num_clusters=num_clusters, kernel=kernel, generated=generate, directory=directory)
