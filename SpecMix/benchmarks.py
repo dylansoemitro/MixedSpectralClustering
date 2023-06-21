@@ -6,6 +6,7 @@ from stepmix.stepmix import StepMix
 from stepmix.utils import get_mixed_descriptor
 from SpecMix.clustering import create_adjacency_df
 from SpecMix.spectralCAT import spectralCAT
+from SpecMix.OnlyCat import onlyCat
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import OneHotEncoder
 #from denseclus import DenseClus
@@ -19,7 +20,6 @@ import gower
 def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = [], kernel=None, curr_kernel=0):
   sigma = 0
   
-  #print("Method: ", method)
   if method == "spectral":
     df = df.drop(['target'], axis=1, errors='ignore')
     start_time = time.time()
@@ -102,6 +102,12 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     denseclus.fit(df)
     end_time = time.time()
     predicted_labels = denseclus.score()
+
+  elif method == "onlyCat":
+    df = df.drop(['target'], axis=1, errors='ignore')
+    start_time = time.time()
+    predicted_labels = onlyCat(df, n_clusters)
+    end_time = time.time()
 
   else:
     raise ValueError("Invalid method")

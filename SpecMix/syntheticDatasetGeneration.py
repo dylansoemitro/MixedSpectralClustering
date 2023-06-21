@@ -18,6 +18,7 @@ def generate_mixed_dataset(num_numerical_features=2, num_categorical_features=1,
     Returns:
     - df: pandas DataFrame with shape (num_samples, num_numerical_features + num_categorical_features + 1), the features and the target label of the dataset
     """
+    np.random.seed(1)
 
     # Situation where we want to generate k clusters with precomputed centers
     if precomputed_centers:

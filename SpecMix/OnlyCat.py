@@ -6,8 +6,8 @@ from scipy import sparse
 from scipy.sparse.linalg import eigs, eigsh
 from sklearn.cluster import KMeans
 from sklearn.metrics.cluster import adjusted_rand_score
-from syntheticDatasetGeneration import generate_mixed_dataset
-from clustering import create_adjacency_df
+from SpecMix.syntheticDatasetGeneration import generate_mixed_dataset
+from SpecMix.clustering import create_adjacency_df
 
 np.set_printoptions(edgeitems=30, linewidth=100000)
 
@@ -49,29 +49,43 @@ def Tcut(B, Nseg):
     evec = evec / (np.sqrt(np.sum(evec ** 2, axis=1, keepdims=True)) + 1e-10)
 
     # k-means
-    kmeans = KMeans(n_clusters=Nseg)
+    kmeans = KMeans(n_clusters=Nseg, random_state=0)
     labels = kmeans.fit_predict(evec)
     return labels
 
-k = 3
-n = 10000
-p = 0.4
+# k = 3
+# n = 10000
+# p = 0.4
 
-num_cf = 5
-num_nf = 0
-t = time.time()
-df = generate_mixed_dataset(num_numerical_features=num_nf, num_categorical_features=num_cf, k=k, p=p, num_samples=n)
-gt = df["target"].to_numpy()
-print("DF: ", time.time() - t)
+# num_cf = 5
+# num_nf = 0
+# t = time.time()
+# df = generate_mixed_dataset(num_numerical_features=num_nf, num_categorical_features=num_cf, k=k, p=p, num_samples=n)
+# gt = df["target"].to_numpy()
+# print("DF: ", time.time() - t)
 
-t = time.time()
-A = create_adjacency_df(df)
-print("A: ", time.time() - t)
+# t = time.time()
+# A, _, _ = create_adjacency_df(df)
+# print(A)
+# print("A: ", time.time() - t)
 
-B = A[0:n, n::]
+# B = A[0:n, n::]
 
-t = time.time()
-l = Tcut(B, k)
-print("Tcut: ", time.time() - t)
-print(adjusted_rand_score(gt, l))
-print(l)
+# t = time.time()
+# l = Tcut(B, k)
+# print("Tcut: ", time.time() - t)
+# print(adjusted_rand_score(gt, l))
+# print(l)
+
+def onlyCat(df, k):
+    A, _, _ = create_adjacency_df(df)
+    n = len(df)
+    B = A[0:n, n::]
+
+    t = time.time()
+    l = Tcut(B, k)
+    # print("Tcut: ", time.time() - t)
+    #print(adjusted_rand_score(gt, l))
+    #print(l)
+    return l
+

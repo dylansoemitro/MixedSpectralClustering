@@ -55,6 +55,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
             categorical_labels.append(f'{col}={value}')
     categorical_nodes_count = len(categorical_labels)
     total_nodes_count = numerical_nodes_count + categorical_nodes_count
+
     # Initialize adjacency matrix
     matrix = np.zeros((total_nodes_count, total_nodes_count))
 
@@ -63,48 +64,48 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
         numerical_labels.append(f'numerical{i}')
 
     # Calculate numerical distances using KNN graph or fully connected graph
-    
-    scaler = StandardScaler()
-    numeric_arr = scaler.fit_transform(np.array(numeric_df))
-    if kernel:
-        if kernel == "median_pairwise":
-            sigma = median_pairwise(numeric_arr)
-        elif kernel == "ascmsd":
-            sigma = ascmsd(numeric_arr, knn)
-        elif kernel == "cv_distortion":
-            sigmas = np.linspace(0., 100, 20)
-            sigma = cv_distortion_sigma(numeric_arr, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
-        elif kernel == "cv_sigma":
-            sigmas = np.linspace(0.01, 10, 20)
-            sigma = cv_sigma(numeric_arr, sigmas, n_clusters=n_clusters)
-        elif kernel == "preset":
-            pass
+    if not numeric_df.empty:
+        scaler = StandardScaler()
+        numeric_arr = scaler.fit_transform(np.array(numeric_df))
+        if kernel:
+            if kernel == "median_pairwise":
+                sigma = median_pairwise(numeric_arr)
+            elif kernel == "ascmsd":
+                sigma = ascmsd(numeric_arr, knn)
+            elif kernel == "cv_distortion":
+                sigmas = np.linspace(0., 100, 20)
+                sigma = cv_distortion_sigma(numeric_arr, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
+            elif kernel == "cv_sigma":
+                sigmas = np.linspace(0.01, 10, 20)
+                sigma = cv_sigma(numeric_arr, sigmas, n_clusters=n_clusters)
+            elif kernel == "preset":
+                pass
+            else:
+                raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
+        if sigma == 0:
+            sigma = 1e-10
+
+        if knn:
+            A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
+            A_conn = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='connectivity', include_self=True)
+            A_dist = A_dist.toarray()
+            A_conn = A_conn.toarray()
+
+            # Make connectivity and distance matrices symmetric
+            A_conn = 0.5 * (A_conn + A_conn.T)
+            A_dist = 0.5 * (A_dist + A_dist.T)
+
+            # Compute the similarities using boolean indexing
+            dist_matrix = np.exp(-(A_dist)**2 / ((2 * sigma**2)))
+            dist_matrix[~A_conn.astype(bool)] = 0.0
         else:
-            raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
-    if sigma == 0:
-        sigma = 1e-10
+            dist_matrix = cdist(numeric_arr, numeric_arr, metric='euclidean')
+            dist_matrix = np.exp(-(dist_matrix)**2 / ((2 * sigma**2)))
 
-    if knn:
-        A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
-        A_conn = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='connectivity', include_self=True)
-        A_dist = A_dist.toarray()
-        A_conn = A_conn.toarray()
-
-        # Make connectivity and distance matrices symmetric
-        A_conn = 0.5 * (A_conn + A_conn.T)
-        A_dist = 0.5 * (A_dist + A_dist.T)
-
-        # Compute the similarities using boolean indexing
-        dist_matrix = np.exp(-(A_dist)**2 / ((2 * sigma**2)))
-        dist_matrix[~A_conn.astype(bool)] = 0.0
-    else:
-        dist_matrix = cdist(numeric_arr, numeric_arr, metric='euclidean')
-        dist_matrix = np.exp(-(dist_matrix)**2 / ((2 * sigma**2)))
-
-    # Add numerical distance matrix to the original one (top left corner)
-    if lambdas and lambdas[0] == 0:
-        return (dist_matrix, sigma, time.time()-start) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma, time.time()-start)
-    matrix[:numerical_nodes_count, :numerical_nodes_count] = dist_matrix
+        # Add numerical distance matrix to the original one (top left corner)
+        if lambdas and lambdas[0] == 0:
+            return (dist_matrix, sigma, time.time()-start) if not return_df else (pd.DataFrame(dist_matrix, index=numerical_labels, columns=numerical_labels), sigma, time.time()-start)
+        matrix[:numerical_nodes_count, :numerical_nodes_count] = dist_matrix
 
     # Connect categorical nodes to numerical observations
     for i in range(numerical_nodes_count):
