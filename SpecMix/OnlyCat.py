@@ -81,7 +81,6 @@ def onlyCat(df, k):
     A, _, _ = create_adjacency_df(df)
     n = len(df)
     B = A[0:n, n::]
-
     t = time.time()
     l = Tcut(B, k)
     # print("Tcut: ", time.time() - t)

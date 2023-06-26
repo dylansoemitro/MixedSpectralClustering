@@ -12,7 +12,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import pairwise_distances
 import time
 
-def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2):
+def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_df=False, numerical_cols=[], categorical_cols=[], n_clusters = 2, scaling = True):
     """
     Creates an adjacency matrix for a given dataset for use in spectral clustering.
 
@@ -59,14 +59,14 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
     # Initialize adjacency matrix
     matrix = np.zeros((total_nodes_count, total_nodes_count))
 
-    # Add numerical labels to list
-    for i in range(numerical_nodes_count):
-        numerical_labels.append(f'numerical{i}')
-
     # Calculate numerical distances using KNN graph or fully connected graph
     if not numeric_df.empty:
-        scaler = StandardScaler()
-        numeric_arr = scaler.fit_transform(np.array(numeric_df))
+        # Scale numerical data
+        if scaling:
+            scaler = StandardScaler()
+            numeric_arr = scaler.fit_transform(np.array(numeric_df))
+        else:
+            numeric_arr = np.array(numeric_df)
         if kernel:
             if kernel == "median_pairwise":
                 sigma = median_pairwise(numeric_arr)
@@ -76,7 +76,10 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
                 sigmas = np.linspace(0., 100, 20)
                 sigma = cv_distortion_sigma(numeric_arr, sigmas, n_clusters=n_clusters, lambdas = lambdas, knn=knn, categorical_cols=categorical_cols, numerical_cols=numerical_cols)
             elif kernel == "cv_sigma":
-                sigmas = np.linspace(0.01, 10, 20)
+                if scaling:
+                    sigmas = np.linspace(0.01, 10, 20)
+                else:
+                    sigmas = np.linspace(1, 100, 20)
                 sigma = cv_sigma(numeric_arr, sigmas, n_clusters=n_clusters)
             elif kernel == "preset":
                 pass
@@ -84,7 +87,7 @@ def create_adjacency_df(df, sigma = 1, kernel=None, lambdas=None, knn=0, return_
                 raise ValueError("Invalid kernel value. Must be one of: median_pairwise, ascmsd, cv_distortion, cv_sigma")
         if sigma == 0:
             sigma = 1e-10
-
+        print(f"Sigma: {sigma}")
         if knn:
             A_dist = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='distance', include_self=True)
             A_conn = kneighbors_graph(numeric_arr, n_neighbors=knn, mode='connectivity', include_self=True)

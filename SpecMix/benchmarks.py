@@ -2,6 +2,7 @@ from sklearn.cluster import SpectralClustering
 from sklearn.metrics import jaccard_score, silhouette_score, calinski_harabasz_score, adjusted_rand_score, homogeneity_score, confusion_matrix
 from itertools import permutations
 from kmodes.kprototypes import KPrototypes
+from kmodes.kmodes import KModes
 from stepmix.stepmix import StepMix
 from stepmix.utils import get_mixed_descriptor
 from SpecMix.clustering import create_adjacency_df
@@ -16,16 +17,26 @@ import time
 from collections import Counter
 import pandas as pd
 import gower
+from matplotlib import pyplot as plt
 
-def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = [], kernel=None, curr_kernel=0):
-  sigma = 0
-  
+def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metrics = ["jaccard"], lambdas=[], knn=0, binary_cols = [], categorical_cols = [], numerical_cols = [], kernel=None, directory_dataset = None, directory_time = None, scaling = True):
+  #change type of categorical columns to object
+  for col in categorical_cols:
+    df[col] = df[col].astype('object')
   if method == "spectral":
     df = df.drop(['target'], axis=1, errors='ignore')
+    if directory_dataset is not None and directory_time is not None:
+      adj_matrix, ker_time = directory_dataset, directory_time
+    else:
+      adj_matrix, sigma, ker_time = create_adjacency_df(df, kernel=kernel, lambdas=lambdas, knn=knn, return_df=False, numerical_cols=numerical_cols, categorical_cols=categorical_cols, n_clusters = n_clusters, scaling = scaling)
+    np.printoptions(precision=2, suppress=True)
+    print("adj_matrix", adj_matrix)
+    plt.imshow(adj_matrix)
+    plt.show()
+    plt.savefig("adj_matrix_" + str(lambdas[0]) + ".png")
     start_time = time.time()
-    adj_matrix, sigma, _ = create_adjacency_df(df, sigma = sigma, kernel=kernel, lambdas=lambdas, knn=knn, return_df=False, numerical_cols=numerical_cols, categorical_cols=categorical_cols, n_clusters = n_clusters)
     clustering = SpectralClustering(n_clusters=n_clusters, assign_labels='kmeans',random_state=0, affinity = 'precomputed').fit(adj_matrix)
-    end_time = time.time()
+    end_time = time.time() + ker_time
     predicted_labels = clustering.labels_[:len(target_labels)].tolist()
 
   elif method == "k-prototypes":
@@ -109,13 +120,18 @@ def calculate_score(df, target_labels, n_clusters = 2, method = "spectral", metr
     predicted_labels = onlyCat(df, n_clusters)
     end_time = time.time()
 
+  elif method == "k-modes":
+    df = df.drop(['target'], axis=1, errors='ignore')
+    k_modes = KModes(n_clusters=n_clusters, init='Huang', n_init=5, verbose=0, random_state = 0)
+    start_time = time.time()
+    predicted_labels = k_modes.fit_predict(df)
+    end_time = time.time()
   else:
     raise ValueError("Invalid method")
 
   time_taken = end_time-start_time
   scores_dict = {}
-  # print("predicted labels: ", predicted_labels)
-  # print("target labels: ", target_labels)
+  
   # element_frequencies_pred = Counter(predicted_labels)
   # element_frequencies_target = Counter(target_labels)
   # print("Predicted Label Frequencies: ")
@@ -165,7 +181,6 @@ def purity_score(y_pred, y_true):
     
     # Find the maximum value in each column (majority class)
     majority_sum = np.sum(np.amax(cm, axis=0))
-    
     # Calculate purity
     purity = majority_sum / np.sum(cm)
     
